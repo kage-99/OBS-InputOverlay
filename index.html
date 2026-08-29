@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8">
+        <title>OBS Key Overlay</title>
+        <style>
+            body {
+                background: transparent; /* Macht den Hintergrund in OBS unsichtbar */
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                font-family: 'Arial', sans-serif;
+            }
+            #key-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .key-box {
+                background: rgba(20, 20, 20, 0.85);
+                color: #00ffcc;
+                padding: 20px 45px;
+                font-size: 54px;
+                font-weight: bold;
+                border-radius: 12px;
+                border: 3px solid #00ffcc;
+                min-width: 140px;
+                text-align: center;
+                box-shadow: 0 0 25px rgba(0, 255, 204, 0.6);
+                transition: opacity 0.3s ease, transform 0.1s ease;
+                text-transform: uppercase;
+            }
+            /* Animation beim Drücken einer neuen Taste */
+            .pop {
+                transform: scale(1.1);
+            }
+        </style>
+    </head>
+    <body>
+
+        <div id="key-container">
+            <div id="display" class="key-box">Bereit...</div>
+        </div>
+
+        <script>
+            const display = document.getElementById('display');
+            const socketUrl = `ws://${
+                window.location.host
+            }`;
+            const ws = new WebSocket(socketUrl);
+            let fadeTimeout = null;
+
+            // Neu: Speichert die Tasten der aktuell angezeigten, "stabilen" Kombination
+            let currentStableKeys = [];
+            // Neu: Speichert, ob wir gerade "eingefroren" sind, um das Zerfallen zu verhindern
+            let isKeyCombinationLocked = false;
+
+            ws.onopen = () => {
+                display.innerText = "Verbunden!";
+                display.style.borderColor = "#00ffcc";
+                display.style.color = "#00ffcc";
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                // Tasten verarbeiten, falls welche gedrückt sind
+                if (data.keys && data.keys.length > 0) { // Tasten säubern und übersetzen
+                    const incomingKeys = data.keys.map(key => {
+                        let clean = key.replace('KEY_', '');
+                        if (clean === 'SPACE') 
+                            clean = 'LEER';
+                        
+
+
+                        if (clean === 'LEFTCTRL') 
+                            clean = 'STRG-L';
+                        
+
+
+                        if (clean === 'LEFTSHIFT') 
+                            clean = 'SHIFT-L';
+                        
+
+
+                        if (clean === 'LEFTALT') 
+                            clean = 'ALT-L';
+                        
+
+
+                        return clean;
+                    });
+
+                    // Vergleiche, ob die einkommenden Tasten die gleichen sind wie die angezeigten
+                    const incomingString = incomingKeys.slice().sort().join('+');
+                    const stableString = currentStableKeys.slice().sort().join('+');
+
+                    // Wenn wir im "Eingefroren"-Modus sind:
+                    if (isKeyCombinationLocked) {
+                        // Wir prüfen nur, ob die aktuell gedrückten Tasten ein Teil der stabilen Kombination sind
+                        // UND ob es weniger Tasten sind. Das bedeutet, du lässt Tasten los.
+                        const isSubset = incomingKeys.every(val => currentStableKeys.includes(val));
+                        if (isSubset && incomingKeys.length<currentStableKeys.length) {
+                // Wenn ja, ignorieren wir dieses Update und lassen den alten, vollständigen Shortcut stehen.
+                // Erst wenn ALLE Tasten losgelassen wurden, heben wir die Sperre auf (im 'else'-Zweig).
+                return;
+            }
+        }
+
+        // Falls wir nicht gesperrt sind, oder falls neue Tasten dazugekommen sind:
+        
+        // Timer stoppen, falls er läuft
+        clearTimeout(fadeTimeout);
+
+        // Anzeige aktualisieren
+        const displayText = incomingKeys.join(' + ');
+        display.innerText = displayText;
+        display.style.opacity = "1";
+
+        // Animation nur triggern, wenn es wirklich eine neue Kombination ist
+        if (incomingString !== stableString) {
+            display.classList.add('pop');
+            setTimeout(() =>display.classList.remove('pop'), 100) 
+
+
+                        
+
+
+                    }
+
+                    // Neue stabile Kombination speichern
+                    currentStableKeys = incomingKeys;
+
+                    // Neu: Wenn wir mehr als eine Taste haben, aktivieren wir die Sperre.
+                    if (incomingKeys.length > 1) {
+                        isKeyCombinationLocked = true;
+                    }
+
+                } else {
+                    // Wenn ALLES losgelassen wurde (Array ist leer):
+
+                    // Erst jetzt heben wir die Sperre auf und leeren die stabile Kombination
+                    isKeyCombinationLocked = false;
+                    currentStableKeys = [];
+
+                    // Nach 1.5 Sekunden ausblenden
+                    clearTimeout(fadeTimeout);
+                    fadeTimeout = setTimeout(() => {
+                        display.style.opacity = "0";
+                    }, 1500);
+                }
+            };
+
+            ws.onerror = () => {
+                display.innerText = "Fehler";
+                display.style.borderColor = "#ff0000";
+                display.style.color = "#ff0000";
+            };
+
+            ws.onclose = () => {
+                display.innerText = "Getrennt";
+                display.style.borderColor = "#ff3333";
+                display.style.color = "#ff3333";
+            };
+        </script>
+    </body>
+</html>
