@@ -1,9 +1,11 @@
 # OBS-InputOverlay
 A nice looking Input Overlay for OBS Studio
 ## Installation
-To install it clone the repository with the command 
+To install it clone the repository and install all needed dependencies with the command 
 ``` sh
 git clone https://github.com/kage-99/OBS-InputOverlay.git
+cd OBS-InputOverlay
+npm install
 ```
 and run the server.js file with this command
 ``` sh
